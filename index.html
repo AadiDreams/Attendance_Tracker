@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#111827">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg">
+<title>Class Attendance</title>
+<style>
+:root{--bg:#f5f7fb;--card:#fff;--text:#111827;--muted:#6b7280;--border:#e5e7eb;--accent:#111827;--green:#16a34a;--red:#dc2626;--amber:#d97706}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+header{position:sticky;top:0;z-index:5;background:rgba(245,247,251,.94);backdrop-filter:blur(10px);padding:14px 16px 10px;border-bottom:1px solid var(--border)}
+h1{font-size:20px;margin:0 0 10px}.sub{font-size:12px;color:var(--muted)}
+main{max-width:900px;margin:auto;padding:14px 12px 90px}.tabs{display:flex;gap:8px;margin-bottom:14px;overflow:auto}.tab{border:1px solid var(--border);background:#fff;border-radius:999px;padding:9px 14px;font-weight:600;white-space:nowrap}.tab.active{background:var(--accent);color:#fff}
+.card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:14px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,.03)}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.between{justify-content:space-between}
+input,select,button{font:inherit}input,select{border:1px solid var(--border);background:#fff;border-radius:10px;padding:10px 11px}button{border:0;border-radius:10px;padding:10px 12px;font-weight:700;cursor:pointer}.primary{background:var(--accent);color:#fff}.secondary{background:#eef0f3}.danger{background:#fee2e2;color:#991b1b}.small{padding:7px 9px;font-size:13px}
+.statgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.stat{background:#f8fafc;border-radius:12px;padding:11px}.stat b{font-size:20px;display:block}.stat span{font-size:11px;color:var(--muted)}
+.student{display:grid;grid-template-columns:minmax(130px,1fr) repeat(5,45px) 72px;gap:7px;align-items:center;padding:9px 0;border-top:1px solid var(--border)}.student:first-child{border-top:0}.name{font-weight:650;font-size:14px}.period{height:38px;padding:0;background:#f3f4f6;color:#6b7280}.period.p{background:#dcfce7;color:#166534}.period.a{background:#fee2e2;color:#991b1b}.credit{font-size:12px;text-align:right;font-weight:700}.full{color:var(--green)}.half{color:var(--amber)}.zero{color:var(--red)}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:9px 6px;border-bottom:1px solid var(--border);text-align:left}th{font-size:11px;color:var(--muted);text-transform:uppercase}.pct{font-weight:800}
+.hidden{display:none}.notice{font-size:13px;color:var(--muted);line-height:1.45}.search{width:100%}.empty{text-align:center;padding:30px;color:var(--muted)}
+@media(max-width:600px){.student{grid-template-columns:minmax(110px,1fr) repeat(5,38px) 55px;gap:4px}.period{height:36px;padding:0;font-size:12px}.name{font-size:13px}.credit{font-size:11px}.statgrid{grid-template-columns:repeat(3,1fr)}}
+</style>
+</head>
+<body>
+<header>
+<h1>Class Attendance</h1>
+<div class="sub">5 periods • First half: 2/3 • Second half: exactly 2/2</div>
+</header>
+<main>
+<div class="tabs">
+<button class="tab active" data-page="daily">Daily</button>
+<button class="tab" data-page="monthly">Monthly</button>
+<button class="tab" data-page="students">Students</button>
+<button class="tab" data-page="settings">Settings</button>
+</div>
+
+<section id="daily">
+<div class="card">
+<div class="row between">
+<label><b>Date</b><br><input type="date" id="date"></label>
+<div class="row"><button class="secondary small" id="markAllP">All P</button><button class="secondary small" id="markAllA">All A</button></div>
+</div>
+<p class="notice">Tap each period to switch P/A. The app calculates the day's attendance credit automatically.</p>
+<input class="search" id="dailySearch" placeholder="Search student...">
+</div>
+<div class="card" id="dailyList"></div>
+<div class="row"><button class="primary" id="saveDay">Save attendance</button><button class="danger" id="clearDay">Clear this date</button></div>
+</section>
+
+<section id="monthly" class="hidden">
+<div class="card">
+<div class="row between"><label><b>Month</b><br><input type="month" id="month"></label><input class="search" id="monthlySearch" style="max-width:260px" placeholder="Search student..."></div>
+<p class="notice">Working days are the dates you mark as working in the Daily screen. Present days are 1.0 for both halves, 0.5 for one qualifying half.</p>
+</div>
+<div class="card"><div id="monthlyStats"></div></div>
+<div class="card" style="overflow:auto"><table><thead><tr><th>Student</th><th>Working</th><th>Present</th><th>Attendance</th></tr></thead><tbody id="monthlyTable"></tbody></table></div>
+</section>
+
+<section id="students" class="hidden">
+<div class="card"><b>Students</b><p class="notice">These names were imported from your Excel file. You can add or remove students here.</p>
+<div class="row"><input id="newStudent" placeholder="Student name"><button class="primary" id="addStudent">Add</button></div></div>
+<div class="card" id="studentList"></div>
+</section>
+
+<section id="settings" class="hidden">
+<div class="card"><b>Data & backup</b>
+<p class="notice">Attendance is stored on this device/browser. Export a backup regularly so you can restore it if you change phones or clear browser data.</p>
+<div class="row"><button class="primary" id="exportData">Export backup</button><label class="secondary" style="padding:10px 12px;border-radius:10px;font-weight:700;cursor:pointer">Import backup<input id="importData" type="file" accept=".json" style="display:none"></label></div>
+</div>
+<div class="card"><b>Working days</b><p class="notice">A date counts in monthly working days when it has a saved attendance record. This avoids counting Sundays/holidays automatically.</p></div>
+<div class="card"><b>Attendance rule</b><p class="notice">First half = P1+P2+P3 ≥ 2. Second half = P4+P5 = 2. Daily credit = 1 if both qualify, 0.5 if one qualifies, otherwise 0.</p></div>
+</section>
+</main>
+<script>
+const INITIAL_STUDENTS = ["Aadhil Bineesh", "Aaliya Farhath P.A", "Abhila Abhilash", "Abhinand S Nair", "Afia mohammed", "Aisha sudheer", "Akshai.S.R", "Alfi K A", "Ameena Ibrahim", "Ameena KM", "Amjada muneer. M", "Anamika K.H", "Asna fathima. N", "Aswathi krishnan CV", "Bajeel Muhammed MK", "Bibina Jose", "Devadevan P R", "Devanand sumesh", "Devanandha. AM", "Eldho Johns", "Fathima Farhana PS", "Fathima PM", "Fathima serin", "Fathima Swaliha", "Fida Aliya.N", "Fida Fayiza A.A", "Fousiya k sulaiman", "Heeraja.k", "Hudha Fathima.S", "Keerthana Manoj", "Lekshmi s kumar", "Mariya Eldhose", "Meera M", "Megha. M", "Merin varghese", "Mohammad Liyan kk", "Mridula kp", "Muhammed Siddique N", "Nabeel.p", "Nadiya M Shanavas", "Nandhitha A. K", "Naurin Fathima M.S", "Nived krishna A", "Pooja. B", "Pranavya. ck", "Priya prasad", "RINSHA FATHIMA", "Riya k kabeer", "Shabana Mambrathodi", "Sinan v salim", "Sivananda Pradeep", "Siya Fathima A.A", "Swaliha Nazar", "THANZEEL.T", "Thaskeena Muhammed", "Umarul Muhthar.Y", "Vikhnesh s s"];
+const KEY="classAttendanceV1";
+let db=JSON.parse(localStorage.getItem(KEY)||"null")||{students:INITIAL_STUDENTS.map((name,i)=>({id:String(i+1),name})),days:{}};
+let currentDay={};
+
+function saveDB(){localStorage.setItem(KEY,JSON.stringify(db))}
+function isoToday(){let d=new Date();return d.toISOString().slice(0,10)}
+function ymToday(){return isoToday().slice(0,7)}
+document.getElementById("date").value=isoToday(); document.getElementById("month").value=ymToday();
+
+function blank(){return ["","","","",""]}
+function getDay(date){if(!db.days[date]) db.days[date]={working:false,attendance:{}};return db.days[date]}
+function calc(a){let p1=a.slice(0,3).filter(x=>x==="P").length;let p2=a.slice(3).filter(x=>x==="P").length;let h1=p1>=2,h2=p2===2;return {h1,h2,credit:(h1&&h2)?1:(h1||h2)?0.5:0}}
+function renderDaily(){
+ let date=document.getElementById("date").value, d=getDay(date), q=document.getElementById("dailySearch").value.toLowerCase();
+ currentDay={};
+ let html="";
+ for(let s of db.students.filter(s=>s.name.toLowerCase().includes(q))){
+   let a=(d.attendance[s.id]||blank()).slice(); currentDay[s.id]=a;
+   let c=calc(a);
+   html+=`<div class="student" data-id="${s.id}"><div class="name">${esc(s.name)}</div>`;
+   for(let j=0;j<5;j++) html+=`<button class="period ${a[j].toLowerCase()}" data-p="${j}">${a[j]||"—"}</button>`;
+   html+=`<div class="credit ${c.credit===1?"full":c.credit===.5?"half":"zero"}">${c.credit===1?"Full":c.credit===.5?"½ day":"Absent"}</div></div>`;
+ }
+ document.getElementById("dailyList").innerHTML=html||'<div class="empty">No students.</div>';
+ document.querySelectorAll(".student .period").forEach(b=>b.onclick=()=>{let id=b.parentElement.dataset.id,p=+b.dataset.p;currentDay[id][p]=currentDay[id][p]==="P"?"A":"P";renderDaily()});
+}
+function saveDay(){
+ let date=document.getElementById("date").value,d=getDay(date);
+ d.working=true; d.attendance={}; for(let id in currentDay)d.attendance[id]=currentDay[id];
+ saveDB(); renderDaily(); alert("Attendance saved for "+date);
+}
+function clearDay(){let date=document.getElementById("date").value;if(confirm("Clear attendance for "+date+"?")){delete db.days[date];saveDB();renderDaily()}}
+document.getElementById("date").onchange=renderDaily;document.getElementById("dailySearch").oninput=renderDaily;
+document.getElementById("markAllP").onclick=()=>{for(let id in currentDay)currentDay[id]=["P","P","P","P","P"];renderDaily()}
+document.getElementById("markAllA").onclick=()=>{for(let id in currentDay)currentDay[id]=["A","A","A","A","A"];renderDaily()}
+document.getElementById("saveDay").onclick=saveDay;document.getElementById("clearDay").onclick=clearDay;
+
+function monthRows(){
+ let month=document.getElementById("month").value,q=document.getElementById("monthlySearch").value.toLowerCase();
+ let dates=Object.keys(db.days).filter(d=>d.startsWith(month)&&db.days[d].working).sort();
+ let rows=[];
+ for(let s of db.students.filter(s=>s.name.toLowerCase().includes(q))){
+   let present=0;for(let date of dates)present+=calc((db.days[date].attendance[s.id]||blank())).credit;
+   rows.push({name:s.name,working:dates.length,present,pct:dates.length?present/dates.length:0});
+ }
+ return {dates,rows};
+}
+function renderMonthly(){
+ let {dates,rows}=monthRows(), total=rows.length?rows.reduce((x,r)=>x+r.present,0):0, avg=rows.length&&dates.length?rows.reduce((x,r)=>x+r.pct,0)/rows.length:0;
+ document.getElementById("monthlyStats").innerHTML=`<div class="statgrid"><div class="stat"><b>${dates.length}</b><span>Working days</span></div><div class="stat"><b>${total.toFixed(1)}</b><span>Total present credits</span></div><div class="stat"><b>${(avg*100).toFixed(1)}%</b><span>Class average</span></div></div>`;
+ document.getElementById("monthlyTable").innerHTML=rows.map(r=>`<tr><td>${esc(r.name)}</td><td>${r.working}</td><td>${r.present.toFixed(1)}</td><td class="pct">${(r.pct*100).toFixed(1)}%</td></tr>`).join("")||'<tr><td colspan="4" class="empty">No students.</td></tr>';
+}
+document.getElementById("month").onchange=renderMonthly;document.getElementById("monthlySearch").oninput=renderMonthly;
+
+function renderStudents(){
+ document.getElementById("studentList").innerHTML=db.students.map((s,i)=>`<div class="row between" style="padding:9px 0;border-bottom:1px solid var(--border)"><span>${i+1}. ${esc(s.name)}</span><button class="danger small" onclick="removeStudent('${s.id}')">Remove</button></div>`).join("");
+}
+window.removeStudent=function(id){if(confirm("Remove this student? Existing attendance records are kept but will no longer show.")){db.students=db.students.filter(s=>s.id!==id);saveDB();renderStudents();renderDaily();renderMonthly()}}
+document.getElementById("addStudent").onclick=()=>{let n=document.getElementById("newStudent").value.trim();if(!n)return;db.students.push({id:crypto.randomUUID?crypto.randomUUID():String(Date.now()),name:n});document.getElementById("newStudent").value="";saveDB();renderStudents();renderDaily();renderMonthly()};
+
+document.getElementById("exportData").onclick=()=>{let blob=new Blob([JSON.stringify(db,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="attendance-backup-"+isoToday()+".json";a.click();URL.revokeObjectURL(a.href)}
+document.getElementById("importData").onchange=e=>{let f=e.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{let x=JSON.parse(r.result);if(!x.students||!x.days)throw 0;db=x;saveDB();renderAll();alert("Backup restored.")}catch{alert("Invalid backup file.")}};r.readAsText(f)}
+
+document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));t.classList.add("active");document.querySelectorAll("main>section").forEach(x=>x.classList.add("hidden"));document.getElementById(t.dataset.page).classList.remove("hidden");renderAll()});
+function renderAll(){renderDaily();renderMonthly();renderStudents()}
+function esc(s){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
+renderAll();
+if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");
+</script>
+</body>
+</html>

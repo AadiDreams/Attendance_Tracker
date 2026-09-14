@@ -82,7 +82,14 @@ table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:9px 6px;b
 const INITIAL_STUDENTS = ["Aadhil Bineesh", "Aaliya Farhath P.A", "Abhila Abhilash", "Abhinand S Nair", "Afia mohammed", "Aisha sudheer", "Akshai.S.R", "Alfi K A", "Ameena Ibrahim", "Ameena KM", "Amjada muneer. M", "Anamika K.H", "Asna fathima. N", "Aswathi krishnan CV", "Bajeel Muhammed MK", "Bibina Jose", "Devadevan P R", "Devanand sumesh", "Devanandha. AM", "Eldho Johns", "Fathima Farhana PS", "Fathima PM", "Fathima serin", "Fathima Swaliha", "Fida Aliya.N", "Fida Fayiza A.A", "Fousiya k sulaiman", "Heeraja.k", "Hudha Fathima.S", "Keerthana Manoj", "Lekshmi s kumar", "Mariya Eldhose", "Meera M", "Megha. M", "Merin varghese", "Mohammad Liyan kk", "Mridula kp", "Muhammed Siddique N", "Nabeel.p", "Nadiya M Shanavas", "Nandhitha A. K", "Naurin Fathima M.S", "Nived krishna A", "Pooja. B", "Pranavya. ck", "Priya prasad", "RINSHA FATHIMA", "Riya k kabeer", "Shabana Mambrathodi", "Sinan v salim", "Sivananda Pradeep", "Siya Fathima A.A", "Swaliha Nazar", "THANZEEL.T", "Thaskeena Muhammed", "Umarul Muhthar.Y", "Vikhnesh s s"];
 const KEY="classAttendanceV1";
 let db=JSON.parse(localStorage.getItem(KEY)||"null")||{students:INITIAL_STUDENTS.map((name,i)=>({id:String(i+1),name})),days:{}};
+
+// currentDay holds the in-memory (possibly unsaved) attendance for the date
+// currently loaded. It is only rebuilt from storage when the loaded date
+// changes (or is explicitly reset), NOT on every re-render — otherwise
+// actions like "Mark All P/A", searching, or switching tabs would silently
+// discard unsaved taps.
 let currentDay={};
+let loadedDate=null;
 
 function saveDB(){localStorage.setItem(KEY,JSON.stringify(db))}
 function isoToday(){let d=new Date();return d.toISOString().slice(0,10)}
@@ -92,12 +99,24 @@ document.getElementById("date").value=isoToday(); document.getElementById("month
 function blank(){return ["","","","",""]}
 function getDay(date){if(!db.days[date]) db.days[date]={working:false,attendance:{}};return db.days[date]}
 function calc(a){let p1=a.slice(0,3).filter(x=>x==="P").length;let p2=a.slice(3).filter(x=>x==="P").length;let h1=p1>=2,h2=p2===2;return {h1,h2,credit:(h1&&h2)?1:(h1||h2)?0.5:0}}
-function renderDaily(){
- let date=document.getElementById("date").value, d=getDay(date), q=document.getElementById("dailySearch").value.toLowerCase();
+
+function loadCurrentDay(date){
+ let d=getDay(date);
  currentDay={};
+ for(let s of db.students){
+   currentDay[s.id]=(d.attendance[s.id]||blank()).slice();
+ }
+ loadedDate=date;
+}
+
+function renderDaily(){
+ let date=document.getElementById("date").value;
+ if(date!==loadedDate) loadCurrentDay(date); // only reload from storage on an actual date change
+ let q=document.getElementById("dailySearch").value.toLowerCase();
  let html="";
  for(let s of db.students.filter(s=>s.name.toLowerCase().includes(q))){
-   let a=(d.attendance[s.id]||blank()).slice(); currentDay[s.id]=a;
+   if(!currentDay[s.id]) currentDay[s.id]=blank().slice(); // e.g. a student added after load
+   let a=currentDay[s.id];
    let c=calc(a);
    html+=`<div class="student" data-id="${s.id}"><div class="name">${esc(s.name)}</div>`;
    for(let j=0;j<5;j++){let isPresent=a[j]==="P";html+=`<button class="period ${isPresent?"p":"a"}" data-p="${j}" role="switch" aria-checked="${isPresent}" aria-label="Period ${j+1}: ${isPresent?"Present":"Absent"}" title="Period ${j+1}: ${isPresent?"Present":"Absent"}"></button>`;}
@@ -124,7 +143,7 @@ function saveDay(){
  d.working=true; d.attendance={}; for(let id in currentDay)d.attendance[id]=currentDay[id];
  saveDB(); renderDaily(); alert("Attendance saved for "+date);
 }
-function clearDay(){let date=document.getElementById("date").value;if(confirm("Clear attendance for "+date+"?")){delete db.days[date];saveDB();renderDaily()}}
+function clearDay(){let date=document.getElementById("date").value;if(confirm("Clear attendance for "+date+"?")){delete db.days[date];saveDB();loadedDate=null;renderDaily()}}
 document.getElementById("date").onchange=renderDaily;document.getElementById("dailySearch").oninput=renderDaily;
 document.getElementById("markAllP").onclick=()=>{
   for(let id in currentDay) currentDay[id]=["P","P","P","P","P"];
@@ -160,7 +179,7 @@ window.removeStudent=function(id){if(confirm("Remove this student? Existing atte
 document.getElementById("addStudent").onclick=()=>{let n=document.getElementById("newStudent").value.trim();if(!n)return;db.students.push({id:crypto.randomUUID?crypto.randomUUID():String(Date.now()),name:n});document.getElementById("newStudent").value="";saveDB();renderStudents();renderDaily();renderMonthly()};
 
 document.getElementById("exportData").onclick=()=>{let blob=new Blob([JSON.stringify(db,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="attendance-backup-"+isoToday()+".json";a.click();URL.revokeObjectURL(a.href)}
-document.getElementById("importData").onchange=e=>{let f=e.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{let x=JSON.parse(r.result);if(!x.students||!x.days)throw 0;db=x;saveDB();renderAll();alert("Backup restored.")}catch{alert("Invalid backup file.")}};r.readAsText(f)}
+document.getElementById("importData").onchange=e=>{let f=e.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{let x=JSON.parse(r.result);if(!x.students||!x.days)throw 0;db=x;loadedDate=null;saveDB();renderAll();alert("Backup restored.")}catch{alert("Invalid backup file.")}};r.readAsText(f)}
 
 document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));t.classList.add("active");document.querySelectorAll("main>section").forEach(x=>x.classList.add("hidden"));document.getElementById(t.dataset.page).classList.remove("hidden");renderAll()});
 function renderAll(){renderDaily();renderMonthly();renderStudents()}

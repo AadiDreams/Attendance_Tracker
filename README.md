@@ -1,6 +1,6 @@
 # Attendance_Tracker
 
-This is a mobile-friendly attendance app created from the supplied Excel student list (57 students).
+This is a mobile-friendly attendance app.
 
 Rules:
 - Periods 1–3: at least 2 Present = first half present.

@@ -10,4 +10,4 @@ Rules:
 - Neither = 0.
 - Monthly working days = dates saved as attendance records.
 
-Data is stored locally in the browser and can be exported as JSON backup.
+Data is stored locally in the browser and can be exported and imported as JSON backup.
